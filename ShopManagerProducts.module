@@ -1,16 +1,20 @@
 <?php
-class ShopManagerProducts implements  Module {
+class ShopManagerProducts extends WireData implements Module {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Shop Manager: Products',
-			'summary' => 'Products management for Shop module',
+			'title' => 'Shop Manager: '.__('Products', __FILE__),
+			'summary' => __('Products management for Shop module', __FILE__),
 			'version' => 001,
 			'permanent' => false,
 			'singular' => true,
 			'permission' => 'shop_manage',
 			'requires' => array('ShopManager')
 		);
+	}
+	
+	public function init() {
+		
 	}
 	
 	public function ___install() {
@@ -20,8 +24,8 @@ class ShopManagerProducts implements  Module {
 			$template = $this->fuel('templates')->get('admin');
 			$products = new page($template);
 			$products->parent = $manager;
-			$products->title = 'Orders';
-			$products->name = 'orders';
+			$products->title = 'Products';
+			$products->name = 'products';
 			$products->process = $this;
 			$products->save();
 			$this->message('Installed module: '.$this->className());

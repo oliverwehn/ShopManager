@@ -1,16 +1,20 @@
 <?php
-class ShopManagerOrders implements Module {
+class ShopManagerOrders extends WireData implements Module {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Shop Manager: Orders',
-			'summary' => 'Order management for Shop module',
+			'title' => 'Shop Manager: '.__('Orders', __FILE__),
+			'summary' => __('Order management for Shop module', __FILE__),
 			'version' => 001,
 			'permanent' => false,
 			'singular' => true,
 			'permission' => 'shop_manage',
 			'requires' => array('ShopManager')
 		);
+	}
+		
+	public function init() {
+
 	}
 	
 	public function ___install() {

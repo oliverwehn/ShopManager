@@ -1,11 +1,11 @@
 <?php
 
-class ShopManager extends ProcessList implements Module, ConfigurableModule {
+class ShopManager extends Process implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Shop Manager',
-			'summary' => 'Management section for your shop in backend',
+			'summary' => __('Management section for your shop in backend', __FILE__),
 			'version' => 001,
 			'permanent' => false,
 			'singular' => true,
@@ -13,6 +13,51 @@ class ShopManager extends ProcessList implements Module, ConfigurableModule {
 			'requires' => array('ProcessList')
 		);
 	}
+	
+	public function init() {
+		$this->sections = array(
+			'settings' => array(
+				'title' => $this->_('Settings'),
+				'summary' => $this->_('Manage shop settings')
+			)
+		);
+	}
+	
+	public function ___execute() {
+		return $this->render();
+	}
+
+	protected function render() {
+		$out = "\n<dl class='nav'>";
+		$cnt = 0; 
+		foreach($this->page->children("check_access=0") as $child) {
+			if(!$child->viewable()) continue;
+			if((array_key_exists($child->id, $this->section_pages)) && (array_key_exists($this->section_pages[$child->id], $this->sections))) {
+				$title = $this->sections[$this->section_pages[$child->id]]['title'];
+				$summary = $this->sections[$this->section_pages[$child->id]]['summary'];
+			} else { 
+				if($child->process) {
+					$info = $this->modules->getModuleInfo($child->process);
+					if(preg_match('#^Shop Manager: (.+)$#', $info['title'], $match)) {	
+						$title = htmlspecialchars($match[1]);
+					} else {
+						$title = $info['title']; 
+					}
+					$summary = htmlspecialchars($info['summary']);
+				} else {
+					$title = $child->get("title|name"); 
+					$summary = $this->_('No description available');
+				}
+			}
+			$out .= "\n\t<dt><a class='label' href='{$child->url}'>$title</a></dt>";
+			if($summary) $out .= "\n\t<dd>$summary</dd>";
+			$cnt++;
+		}
+
+		$out .= "\n</dl>";
+		if(!$cnt) $out = '';
+		return $out; 
+	}	
 	
 	static public function getModuleConfigInputfields(Array $data) {
 		// this is a container for fields, basically like a fieldset
@@ -22,8 +67,11 @@ class ShopManager extends ProcessList implements Module, ConfigurableModule {
 	}
 
 	public function ___install() {
-		parent::___install();
 		$this->message('Installed module: '.$this->className());
+		
+		$config = array(
+			'pages' => array()
+		);
 		
 		$template = $this->templates->get("admin");
 		$admin = $this->config->adminRootPageID;
@@ -31,21 +79,23 @@ class ShopManager extends ProcessList implements Module, ConfigurableModule {
 		$manager->parent = $this->fuel('pages')->get($admin);
 		$manager->title = 'Shop Manager';
 		$manager->name = 'shop';
-		$manager->process = $this;
 		$manager->save();
+		$config['section_pages'][$manager->id] = 'mananger';
 		$this->message('Created page: '.$manager->path);
+		
+		
 		
 		// install products management
 		$process_products = $this->fuel('modules')->get('ShopManagerProducts');
-		$this->fuel('modules')->install($process_products);
+		//$process_products->___install();
 		
 		// install orders management
 		$process_orders = $this->fuel('modules')->get('ShopManagerOrders');
-		$this->fuel('modules')->install($process_orders);
+		//$process_orders->___install();
 		
 		// install customer management
 		$process_customer = $this->fuel('modules')->get('ShopManagerCustomers');
-		$this->fuel('modules')->install($process_customers);
+		//$process_customer->___install();
 		
 		// create settings pannel
 		$settings = new page($template);
@@ -54,12 +104,30 @@ class ShopManager extends ProcessList implements Module, ConfigurableModule {
 		$settings->name = 'settings';
 		$settings->process = $this->fuel('modules')->get('ProcessList');
 		$settings->save();
+		$config['section_pages'][$settings->id] = 'settings';
 		$this->message('Created page: '.$settings->path);
+		
+		$this->fuel('modules')->saveModuleConfigData($this, $config);
+		
+		$manager->process = $this;
+		$manager->save();
+		
+		$products = $manager->child('name=products');
+		$products->set('sort', 0)->save();
+		
+		$orders = $manager->child('name=orders');
+		$orders->set('sort', 1)->save();
+		
+		$customers = $manager->child('name=customers');
+		$customers->set('sort', 2)->save();
+		
+		$settings = $manager->child('name=settings');
+		$settings->set('sort', 3)->save();
+		
 		
 	}
 	
 	public function ___uninstall() {
-		parent::___uninstall();
 		$manager = $this->fuel('pages')->get('template=admin, name=shop');
 		if ($manager->id) {
 			$this->fuel('pages')->delete($manager, true);
