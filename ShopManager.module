@@ -8,19 +8,17 @@ class ShopManager extends Process implements Module, ConfigurableModule {
 			'summary' => __('Management section for your shop in backend', __FILE__),
 			'version' => 001,
 			'permanent' => false,
-			'singular' => true,
+			'singular' => false,
 			'permission' => 'shop_manage',
 			'requires' => array('ProcessList')
 		);
 	}
 	
+	public function __construct() {
+
+	}
+	
 	public function init() {
-		$this->sections = array(
-			'settings' => array(
-				'title' => $this->_('Settings'),
-				'summary' => $this->_('Manage shop settings')
-			)
-		);
 	}
 	
 	public function ___execute() {
@@ -32,9 +30,9 @@ class ShopManager extends Process implements Module, ConfigurableModule {
 		$cnt = 0; 
 		foreach($this->page->children("check_access=0") as $child) {
 			if(!$child->viewable()) continue;
-			if((array_key_exists($child->id, $this->section_pages)) && (array_key_exists($this->section_pages[$child->id], $this->sections))) {
-				$title = $this->sections[$this->section_pages[$child->id]]['title'];
-				$summary = $this->sections[$this->section_pages[$child->id]]['summary'];
+			if($child->shopmanager_summary) {
+				$title = $child->title;
+				$summary = $child->shopmanager_summary;
 			} else { 
 				if($child->process) {
 					$info = $this->modules->getModuleInfo($child->process);
@@ -67,72 +65,140 @@ class ShopManager extends Process implements Module, ConfigurableModule {
 	}
 
 	public function ___install() {
-		$this->message('Installed module: '.$this->className());
-		
-		$config = array(
-			'pages' => array()
-		);
-		
-		$template = $this->templates->get("admin");
+				
+		$admin_template = $this->templates->get("admin");
 		$admin = $this->config->adminRootPageID;
-		$manager = new Page($template);
+		$manager = new Page($admin_template);
 		$manager->parent = $this->fuel('pages')->get($admin);
 		$manager->title = 'Shop Manager';
 		$manager->name = 'shop';
+		$manager->status = Page::statusSystem;
 		$manager->save();
-		$config['section_pages'][$manager->id] = 'mananger';
 		$this->message('Created page: '.$manager->path);
 		
+		// create the template used by Language pages
+		$template = new Template();	
+		$template->set('altFilename', basename($admin_template->filename));		
+		$template->name = 'shopmanager_admin';
+		$template->slashUrls = 1; 
+		$template->pageLabelField = 'name';
+		$template->noGlobal = 1; 
+		$template->noMove = 1; 
+		$template->noTrash = 1; 
+		$template->noUnpublish = 1; 
+		$template->noChangeTemplate = 1; 
+		$template->nameContentTab = 1; 
+		$template->flags = Template::flagSystem; 
 		
+		// create the fieldgroup to be used by the shopmanager template
+		$fieldgroup = new Fieldgroup(); 
+		$fieldgroup->name = $template->name;
+		$fieldgroup->add($this->fuel('fields')->get('title'));
+		// create process field
+		$field = new Field();	
+		$field->type = $this->fuel('modules')->get("FieldtypeModule"); 
+		$field->name = 'shopmanager_process';
+		$field->label = 'Shop Manager: Process';	
+		$field->flags = Field::flagSystem;
+		$field->save();
+		$fieldgroup->add($field);
+		$this->message("Created field: ".$field->name); 
 		
-		// install products management
-		$process_products = $this->fuel('modules')->get('ShopManagerProducts');
-		//$process_products->___install();
+		$field = new Field();	
+		$field->type = $this->fuel('modules')->get("FieldtypeTextarea"); 
+		$field->name = 'shopmanager_summary';
+		$field->label = 'Shop Manager: Page Summary';	
+		$field->flags = Field::flagSystem;
+		$field->textformatters = array($this->fuel('modules')->get('TextformatterEntities'));
+		$field->save();
+		$fieldgroup->add($field);
+		$this->message("Created field: ".$field->name); 
 		
-		// install orders management
-		$process_orders = $this->fuel('modules')->get('ShopManagerOrders');
-		//$process_orders->___install();
-		
-		// install customer management
-		$process_customer = $this->fuel('modules')->get('ShopManagerCustomers');
-		//$process_customer->___install();
+		// save fieldgroup 
+		$fieldgroup->save();
+
+		// add fieldgroup to template
+		$template->fieldgroup = $fieldgroup; 
+		$template->save();
+		$template->parentTemplates = array($admin, $template);
+		$template->save();
+		$this->message("Created Template: " . $template->name); 
 		
 		// create settings pannel
-		$settings = new page($template);
+		$settings = new Page($template);
 		$settings->parent = $manager;
 		$settings->title = 'Settings';
 		$settings->name = 'settings';
-		$settings->process = $this->fuel('modules')->get('ProcessList');
+		$settings->shopmanager_summary = $this->_('Manage shop settings');
 		$settings->save();
-		$config['section_pages'][$settings->id] = 'settings';
+		
+		// manager installed
+		$this->message('Installed module: '.$this->className());
+		
+		// now go for default sub modules
+		// install orders management
+		$process_orders = $this->fuel('modules')->get('ShopManagerOrders');
+		
+		// install customer management
+		$process_customer = $this->fuel('modules')->get('ShopManagerCustomers');
+		
+		// install products management
+		$process_products = $this->fuel('modules')->get('ShopManagerProducts');
+
+		// install products management
+		$process_manufacturers = $this->fuel('modules')->get('ShopManagerManufacturers');
+		
 		$this->message('Created page: '.$settings->path);
 		
-		$this->fuel('modules')->saveModuleConfigData($this, $config);
+		// assign processes and save		
+		$settings->shopmanager_process = $this;
+		$settings->sort = count($settings->parent->children)+1;
+		$settings->save();
 		
 		$manager->process = $this;
-		$manager->save();
-		
-		$products = $manager->child('name=products');
-		$products->set('sort', 0)->save();
-		
-		$orders = $manager->child('name=orders');
-		$orders->set('sort', 1)->save();
-		
-		$customers = $manager->child('name=customers');
-		$customers->set('sort', 2)->save();
-		
-		$settings = $manager->child('name=settings');
-		$settings->set('sort', 3)->save();
-		
-		
+		$manager->save();		
 	}
 	
 	public function ___uninstall() {
-		$manager = $this->fuel('pages')->get('template=admin, name=shop');
+		$pages = $this->fuel('pages');
+		
+		$manager = $pages->get('template=admin, name=shop');
 		if ($manager->id) {
-			$this->fuel('pages')->delete($manager, true);
+			$manager->status = Page::statusSystemOverride;
+			$manager->status = 0;
+			$manager->save();
+			$pages->delete($manager, true);
 		} 
+		
+		$templates = $this->fuel('templates');
+		$template = $templates->get('shopmanager_admin');
+		if($template->id) {
+			$fieldgroup = $template->fieldgroup;
+			$delete = $pages->find('template='.$template->name);
+			foreach($delete as $page) {
+				$pages->delete($page, true);
+			}
+			$template->flags = Template::flagSystemOverride;
+			$template->flags = 0;
+			$template->save();
+			$templates->delete($template);
+			
+			// delete fieldgroup 
+			$this->fuel('fieldgroups')->delete($fieldgroup); 
+			
+			// delete fields
+			$fields = $this->fuel('fields');
+			$fieldlist = $fields->find('name^=shopmanager_');
+			foreach($fieldlist as $field) {
+				if($field->id) {
+					$field->flags = Field::flagSystemOverride;
+					$field->flags = 0;
+					$field->save();
+					$fields->delete($field);
+				}
+			}			
+		} else {
+			//throw new WireException('ShopManager admin template couldn’t be deleted');
+		}
 	}
-
-
 }

@@ -1,5 +1,5 @@
 <?php
-class ShopManagerProducts extends WireData implements Module {
+class ShopManagerProducts extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
@@ -17,19 +17,58 @@ class ShopManagerProducts extends WireData implements Module {
 		
 	}
 	
+	static public function getModuleConfigInputfields(Array $data) {
+		// get modules
+		$modules = Wire::getFuel('modules');
+		// this is a container for fields, basically like a fieldset
+		$inputfields = new InputfieldWrapper();
+		// where to look
+		$field = $modules->get('InputfieldPageListSelect');
+		$field->setAttribute('name', 'parent_id'); 
+		$field->label = __('Parent of product pages', __FILE__);
+		$field->attr('value', (int) 1); 
+		$field->description = __("Select the parent of the pages that are searched for product pages.", __FILE__);
+		$field->required = false;
+		$inputfields->append($field); 
+		
+		// templates to look for
+		$field = $modules->get('InputfieldSelectMultiple');
+		$field->setAttribute('name', 'template_id'); 
+		$field->label = __('Templates allowed for product pages', __FILE__);
+		$field->description = __("Select the templates of the pages that are considered to be manufacturer pages.", __FILE__);
+		$templates = $modules = Wire::getFuel('templates');
+		foreach($templates as $template) $field->addOption($template->id, $template->name); 
+		$inputfields->append($field);
+		 		
+		return $inputfields;
+	}	
+	
 	public function ___install() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
 		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
 		if($manager->id > 0) {
-			$template = $this->fuel('templates')->get('admin');
-			$products = new page($template);
-			$products->parent = $manager;
-			$products->title = 'Products';
-			$products->name = 'products';
-			$products->process = $this;
-			$products->save();
-			$this->message('Installed module: '.$this->className());
-			$this->message('Created page: '.$products->path);
+			$template = $this->fuel('templates')->get('shopmanager_admin');		
+			if($template->id) {
+				$info = $this->getModuleInfo();
+				$products = new page($template);
+				$products->parent = $manager;
+				$products->title = 'Products';
+				$products->name = 'products';
+				$products->shopmanager_process = $this;
+				$products->shopmanager_summary = $info['summary'];
+				// find settings
+				$settings = $manager->child('name=settings');
+				if($settings->id) {
+					$products->sort = $settings->sort;
+					$settings->sort += 1;
+					$settings->save();
+				}
+				$products->save();
+				$this->message('Installed module: '.$this->className());
+				$this->message('Created page: '.$products->path);
+			} else {
+				throw new WireException('Template "shopmanager_admin" wasnÕt found');
+			}
 		} else {
 			throw new WireException('WasnÕt able to find Shop Manager page!');
 		}
@@ -38,7 +77,7 @@ class ShopManagerProducts extends WireData implements Module {
 	public function ___uninstall() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
 		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
-		$products = $manager->child('name=products, template=admin');
+		$products = $manager->child('name=products, template=shopmanager_admin');
 		if($products->id) {
 			$path = $products->path;
 			$this->fuel('pages')->delete($products, true);

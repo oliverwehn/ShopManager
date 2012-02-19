@@ -1,5 +1,5 @@
 <?php
-class ShopManagerCustomers extends WireData implements Module {
+class ShopManagerCustomers extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
@@ -17,19 +17,49 @@ class ShopManagerCustomers extends WireData implements Module {
 		
 	}
 	
+	static public function getModuleConfigInputfields(Array $data) {
+		// get modules
+		$modules = Wire::getFuel('modules');
+		// this is a container for fields, basically like a fieldset
+		$inputfields = new InputfieldWrapper();
+		
+		// user roles allowed as customers
+		$field = $modules->get('InputfieldSelectMultiple');
+		$field->setAttribute('name', 'role_id'); 
+		$field->label = __('User roles allowed for customers', __FILE__);
+		$roles = $modules = Wire::getFuel('roles');
+		foreach($roles as $role) $field->addOption($role->id, $role->name); 
+		$inputfields->append($field);
+		 		
+		return $inputfields;
+	}	
+	
 	public function ___install() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
 		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
 		if($manager->id > 0) {
-			$template = $this->fuel('templates')->get('admin');
-			$customers = new page($template);
-			$customers->parent = $manager;
-			$customers->title = 'Customers';
-			$customers->name = 'customers';
-			$customers->process = $this;
-			$customers->save();
-			$this->message('Installed module: '.$this->className());
-			$this->message('Created page: '.$customers->path);
+			$template = $this->fuel('templates')->get('shopmanager_admin');		
+			if($template->id) {
+				$info = $this->getModuleInfo();				
+				$customers = new page($template);
+				$customers->parent = $manager;
+				$customers->title = 'Customers';
+				$customers->name = 'customers';
+				$customers->shopmanager_process = $this;
+				$customers->shopmanager_summary = $info['summary'];
+				// find settings
+				$settings = $manager->child('name=settings');
+				if($settings->id) {
+					$customers->sort = $settings->sort;
+					$settings->sort += 1;
+					$settings->save();
+				}			
+				$customers->save();
+				$this->message('Installed module: '.$this->className());
+				$this->message('Created page: '.$customers->path);
+			} else {
+				throw new WireException('Template "shopmanager_admin" wasnÕt found');
+			}
 		} else {
 			throw new WireException('WasnÕt able to find Shop Manager page!');
 		}
@@ -38,7 +68,7 @@ class ShopManagerCustomers extends WireData implements Module {
 	public function ___uninstall() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
 		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
-		$customers = $manager->child('name=customers, template=admin');
+		$customers = $manager->child('name=customers, template=shopmanager_admin');
 		if($customers->id) {
 			$path = $customers->path;
 			$this->fuel('pages')->delete($customers, true);

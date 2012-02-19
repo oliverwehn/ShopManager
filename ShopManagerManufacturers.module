@@ -1,10 +1,10 @@
 <?php
-class ShopManagerOrders extends WireData implements Module, ConfigurableModule {
+class ShopManagerManufacturers extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Shop Manager: '.__('Orders', __FILE__),
-			'summary' => __('Order management for Shop module', __FILE__),
+			'title' => 'Shop Manager: '.__('Manufacturers', __FILE__),
+			'summary' => __('Manufacturers management for Shop module', __FILE__),
 			'version' => 001,
 			'permanent' => false,
 			'singular' => true,
@@ -14,7 +14,7 @@ class ShopManagerOrders extends WireData implements Module, ConfigurableModule {
 	}
 		
 	public function init() {
-
+		
 	}
 	
 	static public function getModuleConfigInputfields(Array $data) {
@@ -25,23 +25,23 @@ class ShopManagerOrders extends WireData implements Module, ConfigurableModule {
 		// where to look
 		$field = $modules->get('InputfieldPageListSelect');
 		$field->setAttribute('name', 'parent_id'); 
-		$field->label = __('Parent of order pages', __FILE__);
+		$field->label = __('Parent of manufacturer pages', __FILE__);
 		$field->attr('value', (int) 1); 
-		$field->description = __("Select the parent of the pages that are searched for order pages.", __FILE__);
+		$field->description = __("Select the parent of the pages that are searched for manufacturer pages.", __FILE__);
 		$field->required = false;
 		$inputfields->append($field); 
 		
 		// templates to look for
-		$field = $modules->get('InputfieldSelect');
+		$field = $modules->get('InputfieldSelectMultiple');
 		$field->setAttribute('name', 'template_id'); 
-		$field->label = __('Template allowed for order pages', __FILE__);
-		$field->description = __("Select the template of the pages that are considered to be order pages.", __FILE__);
+		$field->label = __('Templates allowed for manufacturer pages', __FILE__);
+		$field->description = __("Select the templates of the pages that are considered to be manufacturer pages.", __FILE__);
 		$templates = $modules = Wire::getFuel('templates');
 		foreach($templates as $template) $field->addOption($template->id, $template->name); 
 		$inputfields->append($field);
 		 		
 		return $inputfields;
-	}		
+	}	
 	
 	public function ___install() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
@@ -50,22 +50,22 @@ class ShopManagerOrders extends WireData implements Module, ConfigurableModule {
 			$template = $this->fuel('templates')->get('shopmanager_admin');		
 			if($template->id) {
 				$info = $this->getModuleInfo();
-				$orders = new page($template);
-				$orders->parent = $manager;
-				$orders->title = 'Orders';
-				$orders->name = 'orders';
-				$orders->shopmanager_process = $this;
-				$orders->shopmanager_summary = $info['summary'];
+				$manufacturers = new page($template);
+				$manufacturers->parent = $manager;
+				$manufacturers->title = 'Manufacturers';
+				$manufacturers->name = 'manufacturers';
+				$manufacturers->shopmanager_process = $this;
+				$manufacturers->shopmanager_summary = $info['summary'];
 				// find settings
 				$settings = $manager->child('name=settings');
 				if($settings->id) {
-					$orders->sort = $settings->sort;
+					$manufacturers->sort = $settings->sort;
 					$settings->sort += 1;
 					$settings->save();
 				}
-				$orders->save();		
+				$manufacturers->save();
 				$this->message('Installed module: '.$this->className());
-				$this->message('Created page: '.$orders->path);
+				$this->message('Created page: '.$manufacturers->path);
 			} else {
 				throw new WireException('Template "shopmanager_admin" wasnÕt found');
 			}
@@ -77,10 +77,10 @@ class ShopManagerOrders extends WireData implements Module, ConfigurableModule {
 	public function ___uninstall() {
 		$admin_id = $this->fuel('config')->adminRootPageID;
 		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
-		$orders = $manager->child('name=orders, template=shopmanager_admin');
-		if($orders->id) {
-			$path = $orders->path;
-			$this->fuel('pages')->delete($orders, true);
+		$manufacturers = $manager->child('name=manufacturers, template=shopmanager_admin');
+		if($manufacturers->id) {
+			$path = $manufacturers->path;
+			$this->fuel('pages')->delete($manufacturers, true);
 			$this->message('Deleted page: '.$path);
 		}
 	}
