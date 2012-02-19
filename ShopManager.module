@@ -1,0 +1,70 @@
+<?php
+
+class ShopManager extends ProcessList implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Shop Manager',
+			'summary' => 'Management section for your shop in backend',
+			'version' => 001,
+			'permanent' => false,
+			'singular' => true,
+			'permission' => 'shop_manage',
+			'requires' => array('ProcessList')
+		);
+	}
+	
+	static public function getModuleConfigInputfields(Array $data) {
+		// this is a container for fields, basically like a fieldset
+		$fields = new InputfieldWrapper();
+
+		return $fields;
+	}
+
+	public function ___install() {
+		parent::___install();
+		$this->message('Installed module: '.$this->className());
+		
+		$template = $this->templates->get("admin");
+		$admin = $this->config->adminRootPageID;
+		$manager = new Page($template);
+		$manager->parent = $this->fuel('pages')->get($admin);
+		$manager->title = 'Shop Manager';
+		$manager->name = 'shop';
+		$manager->process = $this;
+		$manager->save();
+		$this->message('Created page: '.$manager->path);
+		
+		// install products management
+		$process_products = $this->fuel('modules')->get('ShopManagerProducts');
+		$this->fuel('modules')->install($process_products);
+		
+		// install orders management
+		$process_orders = $this->fuel('modules')->get('ShopManagerOrders');
+		$this->fuel('modules')->install($process_orders);
+		
+		// install customer management
+		$process_customer = $this->fuel('modules')->get('ShopManagerCustomers');
+		$this->fuel('modules')->install($process_customers);
+		
+		// create settings pannel
+		$settings = new page($template);
+		$settings->parent = $manager;
+		$settings->title = 'Settings';
+		$settings->name = 'settings';
+		$settings->process = $this->fuel('modules')->get('ProcessList');
+		$settings->save();
+		$this->message('Created page: '.$settings->path);
+		
+	}
+	
+	public function ___uninstall() {
+		parent::___uninstall();
+		$manager = $this->fuel('pages')->get('template=admin, name=shop');
+		if ($manager->id) {
+			$this->fuel('pages')->delete($manager, true);
+		} 
+	}
+
+
+}

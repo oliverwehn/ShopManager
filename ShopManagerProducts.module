@@ -1,0 +1,44 @@
+<?php
+class ShopManagerProducts implements  Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Shop Manager: Products',
+			'summary' => 'Products management for Shop module',
+			'version' => 001,
+			'permanent' => false,
+			'singular' => true,
+			'permission' => 'shop_manage',
+			'requires' => array('ShopManager')
+		);
+	}
+	
+	public function ___install() {
+		$admin_id = $this->fuel('config')->adminRootPageID;
+		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
+		if($manager->id > 0) {
+			$template = $this->fuel('templates')->get('admin');
+			$products = new page($template);
+			$products->parent = $manager;
+			$products->title = 'Orders';
+			$products->name = 'orders';
+			$products->process = $this;
+			$products->save();
+			$this->message('Installed module: '.$this->className());
+			$this->message('Created page: '.$products->path);
+		} else {
+			throw new WireException('WasnÕt able to find Shop Manager page!');
+		}
+	}
+	
+	public function ___uninstall() {
+		$admin_id = $this->fuel('config')->adminRootPageID;
+		$manager = $this->fuel('pages')->get($admin_id)->child('name=shop, template=admin');
+		$products = $manager->child('name=products, template=admin');
+		if($products->id) {
+			$path = $products->path;
+			$this->fuel('pages')->delete($products, true);
+			$this->message('Deleted page: '.$path);
+		}
+	}	
+}
